@@ -12,6 +12,7 @@ import (
 	"strings"
 	"os"
 	"path"
+	"time"
 )
 
 var (
@@ -50,13 +51,13 @@ func getAppliedMigrations() (map[string]*Migration) {
 
 	createMigrationTable()
 
-	if dbRows, err = db.Query("select * from migrations"); err != nil {
+	if dbRows, err = db.Query("select version, timestamp from migrations"); err != nil {
 		log.Fatal(err)
 	}
 
 	for dbRows.Next() {
 		migration := Migration{}
-		dbRows.Scan(&migration.Timestamp, &migration.Version)
+		dbRows.Scan(&migration.Version, &migration.Timestamp)
 		rows[migration.Version] = &migration
 	}
 
@@ -133,5 +134,5 @@ func MigrateDatabase() {
 
 type Migration struct {
 	Version   string
-	Timestamp int
+	Timestamp time.Time
 }
