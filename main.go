@@ -7,8 +7,9 @@ import (
 )
 
 func main() {
+	MigrateDatabase()
 	router := httprouter.New()
 	router.POST("/push", AuthMiddleware(ReceivePush))
-	log.Println("Starting webhook on port :8080")
+	log.Println("Webhook listening on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
