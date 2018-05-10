@@ -4,10 +4,13 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"net/http"
 	"log"
+	"github.com/kisielk/sqlstruct"
 )
 
 func main() {
+	sqlstruct.NameMapper = sqlstruct.ToSnakeCase
 	MigrateDatabase()
+	
 	router := httprouter.New()
 	router.POST("/push", AuthMiddleware(ReceivePush))
 	log.Println("Webhook listening on port 8080")

@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"time"
+	"github.com/kisielk/sqlstruct"
 )
 
 var (
@@ -57,7 +58,7 @@ func getAppliedMigrations() (map[string]*Migration) {
 
 	for dbRows.Next() {
 		migration := Migration{}
-		dbRows.Scan(&migration.Version, &migration.Timestamp)
+		sqlstruct.Scan(&migration, dbRows)
 		rows[migration.Version] = &migration
 	}
 
