@@ -5,14 +5,16 @@ import (
 	"net/http"
 	"log"
 	"github.com/kisielk/sqlstruct"
+	"github.com/skiptirengu/go-mantis-webhook/db"
+	"github.com/skiptirengu/go-mantis-webhook/route"
 )
 
 func main() {
 	sqlstruct.NameMapper = sqlstruct.ToSnakeCase
-	MigrateDatabase()
-	
+	db.Migrate()
+
 	router := httprouter.New()
-	router.POST("/push", AuthMiddleware(ReceivePush))
+	router.POST("/push", route.AuthMiddleware(route.Push))
 	log.Println("Webhook listening on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", router))
 }

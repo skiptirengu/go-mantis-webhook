@@ -1,4 +1,4 @@
-package main
+package db
 
 import (
 	_ "github.com/lib/pq"
@@ -14,6 +14,7 @@ import (
 	"path"
 	"time"
 	"github.com/kisielk/sqlstruct"
+	"github.com/skiptirengu/go-mantis-webhook/config"
 )
 
 var (
@@ -21,12 +22,12 @@ var (
 	con           *sql.DB
 )
 
-func GetDB() (*sql.DB) {
+func Get() (*sql.DB) {
 	databaseMutex.Lock()
 	defer databaseMutex.Unlock()
 
 	var (
-		conf    = GetConfig().Database
+		conf    = config.Get().Database
 		connStr = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", conf.User, conf.Password, conf.Host, conf.DatabaseName)
 		err     error
 	)
@@ -44,7 +45,7 @@ func GetDB() (*sql.DB) {
 
 func getAppliedMigrations() (map[string]*Migration) {
 	var (
-		db     = GetDB()
+		db     = Get()
 		rows   = make(map[string]*Migration)
 		err    error
 		dbRows *sql.Rows
@@ -66,7 +67,7 @@ func getAppliedMigrations() (map[string]*Migration) {
 }
 
 func createMigrationTable() {
-	_, err := GetDB().Exec(`
+	_, err := Get().Exec(`
 		create table if not exists migrations (
   			version   varchar not null,
   			timestamp timestamp without time zone default (now() at time zone 'utc')
@@ -92,9 +93,9 @@ func getMigrationsToApply() ([]os.FileInfo) {
 	return files
 }
 
-func MigrateDatabase() {
+func Migrate() {
 	var (
-		db      = GetDB()
+		db      = Get()
 		files   = getMigrationsToApply()
 		applied = getAppliedMigrations()
 	)

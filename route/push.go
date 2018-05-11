@@ -1,4 +1,4 @@
-package main
+package route
 
 import (
 	"net/http"
@@ -18,7 +18,7 @@ var (
 	commitRegex, _ = regexp.Compile("(?:[Cc]los(?:e[sd]?|ing)|[Ff]ix(?:e[sd]|ing)?|[Rr]esolv(?:e[sd]?|ing)|[Ii]mplement(?:s|ed|ing)?)?(?:[:\\s])*((?:#)\\d+(?:[\\s,])*)+$")
 )
 
-func ReceivePush(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func Push(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	event := &pushEvent{}
 
 	if err := json.NewDecoder(r.Body).Decode(event); err != nil {
