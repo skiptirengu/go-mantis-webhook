@@ -30,14 +30,26 @@ func Get() (*configs) {
 }
 
 type configs struct {
-	Token        string             `json:"token"`
+	Secret       string             `json:"secret"`
 	Repositories []repositoryConfig `json:"repositories"`
 	Database     databaseConfig     `json:"database"`
+	Gitlab       gilabConfig        `json:"gitlab"`
+	Mantis       mantisConfig       `json:"mantis"`
+}
+
+type mantisConfig struct {
+	Host     string `json:"host"`
+	Token    string `json:"token"`
+	User     string `json:"user"`
+	Password string `json:"password"`
+}
+
+type gilabConfig struct {
+	Token string `json:"token"`
 }
 
 type databaseConfig struct {
 	Host         string `json:"host"`
-	Port         string `json:"port"`
 	DatabaseName string `json:"database_name"`
 	User         string `json:"user"`
 	Password     string `json:"password"`
