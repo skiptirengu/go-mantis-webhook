@@ -7,7 +7,10 @@ import (
 	"time"
 	"encoding/json"
 	"log"
+	"github.com/skiptirengu/go-mantis-webhook/db"
 )
+
+const pushEventMaxCommits = 20
 
 var (
 	// TODO fix this regex and it's capturing groups
@@ -22,17 +25,44 @@ var Webhook = webhook{}
 
 type webhook struct{}
 
-func (webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	event := &pushEvent{}
+func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	var (
+		event = pushEvent{}
+		err   error
+	)
 
-	if err := json.NewDecoder(r.Body).Decode(event); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
 		log.Print("Unable to parse webhook body", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
+	_, err = hook.getProject(event.Project.PathWithNamespace)
+	if err != nil {
+		return
+	}
+
 	// TODO actual implementation
 	return
+}
+
+func (hook webhook) getProject(projectWithNamespace string) (*db.ProjectsTable, error) {
+	if p, err := db.Projects.Get(projectWithNamespace); err != nil {
+		switch err {
+		case db.ProjectNotFound:
+			log.Printf("Unable to find a mantis project vinculated to the gilab project \"%s\"", projectWithNamespace)
+			return nil, err
+		default:
+			log.Println(err)
+			return nil, err
+		}
+	} else {
+		return p, nil
+	}
+}
+
+func (hook webhook) tryImportUser() () {
+
 }
 
 type pushEvent struct {

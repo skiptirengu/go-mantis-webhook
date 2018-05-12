@@ -1,6 +1,8 @@
 package db
 
-import "database/sql"
+import (
+	"database/sql"
+)
 
 var Aliases = aliases{Get()}
 
@@ -9,7 +11,6 @@ type aliases struct {
 }
 
 type aliasesTable struct {
-	ID    int    `json:"id"`
 	Email string `json:"email"`
 	Alias string `json:"alias"`
 }
@@ -22,11 +23,9 @@ func (a aliases) CheckExist(alias string) (bool) {
 }
 
 func (a aliases) Create(email string, alias string) (*aliasesTable, error) {
-	var insertedId int
-	if res, err := a.db.Query("insert into aliases (email, alias) values ($1, $2) returning id", email, alias); err != nil {
+	if _, err := a.db.Exec("insert into aliases (email, alias) values ($1, $2)", email, alias); err != nil {
 		return nil, err
 	} else {
-		ScanCol(res, &insertedId)
-		return &aliasesTable{ID: insertedId, Email: email, Alias: alias}, nil
+		return &aliasesTable{Email: email, Alias: alias}, nil
 	}
 }
