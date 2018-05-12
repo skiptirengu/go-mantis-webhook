@@ -15,10 +15,10 @@ var (
    		<soapenv:Header/>
    		<soapenv:Body>
       		<man:mc_project_get_users soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
-                <username xsi:type="xsd:string">{{.Username}}</username>
-                <password xsi:type="xsd:string">{{.Password}}</password>
-                <project_id xsi:type="xsd:integer">{{.ProjectID}}</project_id>
-                <access xsi:type="xsd:integer">0</access>
+				<username xsi:type="xsd:string">{{.Username}}</username>
+				<password xsi:type="xsd:string">{{.Password}}</password>
+				<project_id xsi:type="xsd:integer">{{.ProjectID}}</project_id>
+				<access xsi:type="xsd:integer">0</access>
       		</man:mc_project_get_users>
    		</soapenv:Body>
 	</soapenv:Envelope>`

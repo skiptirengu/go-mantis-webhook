@@ -43,6 +43,11 @@ func Get() (*sql.DB) {
 	return con
 }
 
+func ScanCol(r *sql.Rows, v interface{}) (error) {
+	r.Next()
+	return r.Scan(v)
+}
+
 func getAppliedMigrations() (map[string]*Migration) {
 	var (
 		db     = Get()
@@ -127,9 +132,9 @@ func Migrate() {
 				t.Rollback()
 				log.Fatal(err)
 			}
-			log.Println(fmt.Sprintf("Applied migration %s", file.Name()))
 		}
 
+		log.Println(fmt.Sprintf("Applied migration %s", file.Name()))
 		t.Commit()
 	}
 }
