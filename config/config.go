@@ -33,7 +33,7 @@ type configs struct {
 	Secret       string             `json:"secret"`
 	Repositories []repositoryConfig `json:"repositories"`
 	Database     databaseConfig     `json:"database"`
-	Gitlab       gilabConfig        `json:"gitlab"`
+	Gitlab       gitlabConfig       `json:"gitlab"`
 	Mantis       mantisConfig       `json:"mantis"`
 }
 
@@ -44,7 +44,7 @@ type mantisConfig struct {
 	Password string `json:"password"`
 }
 
-type gilabConfig struct {
+type gitlabConfig struct {
 	Token string `json:"token"`
 }
 
