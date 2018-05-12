@@ -5,37 +5,30 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"encoding/json"
 	"github.com/skiptirengu/go-mantis-webhook/db"
-	"log"
 )
-
-type AddProjectRequest struct {
-	GitlabProject string `json:"gitlab_project"`
-	MantisProject string `json:"mantis_project"`
-}
 
 var Projects = projects{}
 
 type projects struct{}
 
+type addProjectRequest struct {
+	GitlabProject string `json:"gitlab_project"`
+	MantisProject string `json:"mantis_project"`
+}
+
 func (projects) Add(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var request = AddProjectRequest{}
+	var request = addProjectRequest{}
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		ErrorResponse(w, http.StatusInternalServerError)
+		ErrorResponse.Send(w, http.StatusInternalServerError)
 		return
 	}
 
 	if db.Projects.CheckExists(request.MantisProject, request.GitlabProject) {
-		ErrorResponseWithMessage(w, http.StatusBadRequest, "Project already exists")
+		ErrorResponse.SendWithMessage(w, http.StatusBadRequest, "Project already exists")
 		return
 	}
 
-	if res, err := db.Projects.Create(request.MantisProject, request.GitlabProject); err == nil {
-		w.WriteHeader(http.StatusCreated)
-		data, _ := json.Marshal(res)
-		w.Write(data)
-	} else {
-		w.WriteHeader(http.StatusInternalServerError)
-		log.Print(err)
-	}
+	res, err := db.Projects.Create(request.MantisProject, request.GitlabProject)
+	DataResponse.Send(w, res, err)
 }

@@ -16,6 +16,7 @@ func main() {
 	router := httprouter.New()
 	router.POST("/push", route.Middleware.AuthorizeWebhook(route.Webhook.Push))
 	router.POST("/projects", route.Middleware.App(route.Projects.Add))
+	router.POST("/aliases", route.Middleware.App(route.Aliases.Add))
 
 	log.Println("Webhook listening on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", router))
