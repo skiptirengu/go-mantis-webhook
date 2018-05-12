@@ -14,7 +14,7 @@ func main() {
 	db.Migrate()
 
 	router := httprouter.New()
-	router.POST("/push", route.Middleware.AuthorizeWebhook(route.Push))
+	router.POST("/push", route.Middleware.AuthorizeWebhook(route.Webhook.Push))
 	router.POST("/projects", route.Middleware.App(route.Projects.Add))
 
 	log.Println("Webhook listening on port 8080")

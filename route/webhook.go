@@ -18,7 +18,11 @@ var (
 	commitRegex, _ = regexp.Compile("(?:[Cc]los(?:e[sd]?|ing)|[Ff]ix(?:e[sd]|ing)?|[Rr]esolv(?:e[sd]?|ing)|[Ii]mplement(?:s|ed|ing)?)?(?:[:\\s])*((?:#)\\d+(?:[\\s,])*)+$")
 )
 
-func Push(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+var Webhook = webhook{}
+
+type webhook struct{}
+
+func (webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	event := &pushEvent{}
 
 	if err := json.NewDecoder(r.Body).Decode(event); err != nil {
