@@ -128,10 +128,11 @@ func Migrate() {
 				t.Rollback()
 				log.Fatal(err)
 			}
-			if _, err := t.Exec("insert into migrations (version) values ($1)", file.Name()); err != nil {
-				t.Rollback()
-				log.Fatal(err)
-			}
+		}
+
+		if _, err := t.Exec("insert into migrations (version) values ($1)", file.Name()); err != nil {
+			t.Rollback()
+			log.Fatal(err)
 		}
 
 		log.Println(fmt.Sprintf("Applied migration %s", file.Name()))
