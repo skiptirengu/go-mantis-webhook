@@ -13,6 +13,7 @@ This webhook use both soap and REST mantis apis, so make sure both of them are e
 This is an example of `config.json` you need to create on the root directory on the webhook.
 ```json
 {
+  "port": 8090,
   "secret": "secret_token",
   "database": {
     "host": "localhost",

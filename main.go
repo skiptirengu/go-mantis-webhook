@@ -7,6 +7,9 @@ import (
 	"github.com/kisielk/sqlstruct"
 	"github.com/skiptirengu/go-mantis-webhook/db"
 	"github.com/skiptirengu/go-mantis-webhook/route"
+	"github.com/skiptirengu/go-mantis-webhook/config"
+	"fmt"
+	"strconv"
 )
 
 func main() {
@@ -15,9 +18,10 @@ func main() {
 
 	router := httprouter.New()
 	router.POST("/webhook/push", route.Middleware.AuthorizeWebhook(route.Webhook.Push))
-	router.POST("/projects", route.Middleware.App(route.Projects.Add))
-	router.POST("/aliases", route.Middleware.App(route.Aliases.Add))
+	router.POST("/app/projects", route.Middleware.App(route.Projects.Add))
+	router.POST("/app/aliases", route.Middleware.App(route.Aliases.Add))
 
-	log.Println("Webhook listening on port 8090")
-	log.Fatal(http.ListenAndServe(":8090", router))
+	port := fmt.Sprintf(":%s", strconv.Itoa(config.Get().Port))
+	log.Printf("Webhook listening on %s", port)
+	log.Fatal(http.ListenAndServe(port, router))
 }
