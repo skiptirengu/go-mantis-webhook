@@ -8,17 +8,15 @@ import (
 	"encoding/json"
 	"log"
 	"github.com/skiptirengu/go-mantis-webhook/db"
+	"strings"
 )
 
 const pushEventMaxCommits = 20
 
 var (
 	// TODO fix this regex and it's capturing groups
-	// The regex have three parts
-	// First part matches the verbs: Fix, fixed, closed, closes, closing, resolve, resolved, etc
-	// Second part matches the task id: #1, #12, #19 #12, etc
-	// Last part matches the time (if any): 0.5, 1, 1.2, etc
-	commitRegex, _ = regexp.Compile("(?:[Cc]los(?:e[sd]?|ing)|[Ff]ix(?:e[sd]|ing)?|[Rr]esolv(?:e[sd]?|ing)|[Ii]mplement(?:s|ed|ing)?)?(?:[:\\s])*((?:#)\\d+(?:[\\s,])*)+$")
+	// (?:[Cc]los(?:e[sd]?|ing)|[Ff]ix(?:e[sd]|ing)?|[Rr]esolv(?:e[sd]?|ing)|[Ii]mplement(?:s|ed|ing)?)+(?:[:\s])*((?:#)*(\d+)(?:[,\s])*)+
+	commitRegex, _ = regexp.Compile("(?m)#[1-9]\\d*")
 )
 
 var Webhook = webhook{}
@@ -42,8 +40,22 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 		return
 	}
 
+	_ := extractIssues(event.Commits)
+
 	// TODO actual implementation
 	return
+}
+
+func extractIssues(commits []commits) (*map[string]string) {
+	var issues = make(map[string]string, len(commits))
+	for _, commit := range commits {
+		// Check if the body contains any information we need first
+		for _, issueId := range commitRegex.FindAllString(commit.Message, -1) {
+			issueId = strings.Replace(issueId, "#", "", -1)
+			issues[commit.Author.Email] = issueId
+		}
+	}
+	return &issues
 }
 
 func (hook webhook) getProject(projectWithNamespace string) (*db.ProjectsTable, error) {
