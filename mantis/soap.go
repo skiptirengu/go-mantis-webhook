@@ -8,6 +8,7 @@ import (
 	"github.com/parnurzeal/gorequest"
 	"github.com/skiptirengu/go-mantis-webhook/config"
 	"html/template"
+	"github.com/skiptirengu/go-mantis-webhook/util"
 )
 
 const (
@@ -41,12 +42,12 @@ type soap struct {
 	conf *config.Configs
 }
 
-func soapEndpoint() (string) {
+func (s soap) soapEndpoint() (string) {
 	return fmt.Sprintf("%s/api/soap/mantisconnect.php", getHost())
 }
 
-func soapAction(method string) (string) {
-	return fmt.Sprintf("%s/%s", soapEndpoint(), method)
+func (s soap) soapAction(method string) (string) {
+	return fmt.Sprintf("%s/%s", s.soapEndpoint(), method)
 }
 
 func (s soap) ProjectGetIdFromName(name string) (int, error) {
@@ -55,7 +56,7 @@ func (s soap) ProjectGetIdFromName(name string) (int, error) {
 		resp   = &ProjectGetIdFromNameResponse{}
 	)
 
-	if err := xmlMakeSoapRequest("mc_project_get_id_from_name", mcProjectGetIdFromNameXML, params, resp); err != nil {
+	if err := s.xmlMakeSoapRequest("mc_project_get_id_from_name", mcProjectGetIdFromNameXML, params, resp); err != nil {
 		return 0, err
 	} else {
 		return resp.ID, nil
@@ -68,14 +69,14 @@ func (s soap) ProjectGetUsers(projectId int) ([]AccountData, error) {
 		resp   = &ProjectGetUsersResponse{}
 	)
 
-	if err := xmlMakeSoapRequest("mc_project_get_users", mcProjectGetUsersXML, params, resp); err != nil {
+	if err := s.xmlMakeSoapRequest("mc_project_get_users", mcProjectGetUsersXML, params, resp); err != nil {
 		return nil, err
 	} else {
 		return resp.Accounts, nil
 	}
 }
 
-func xmlMakeSoapRequest(method, xmlTemplate string, params, result interface{}) (error) {
+func (s soap) xmlMakeSoapRequest(method, xmlTemplate string, params, result interface{}) (error) {
 	var body = bytes.NewBufferString("")
 
 	requestXML := template.Must(template.New(method).Parse(xmlTemplate))
@@ -84,7 +85,7 @@ func xmlMakeSoapRequest(method, xmlTemplate string, params, result interface{}) 
 		return err
 	}
 
-	data, err := makeRequest("mc_project_get_users", string(body.Bytes()))
+	data, err := s.makeRequest("mc_project_get_users", string(body.Bytes()))
 	if err != nil {
 		return err
 	}
@@ -92,18 +93,18 @@ func xmlMakeSoapRequest(method, xmlTemplate string, params, result interface{}) 
 	return xml.Unmarshal(data, result)
 }
 
-func makeRequest(method string, request string) ([]byte, error) {
+func (s soap) makeRequest(method string, request string) ([]byte, error) {
 	var (
 		data  []byte
 		fault = &faultResponse{}
 	)
 
-	_, body, errs := gorequest.New().Post(soapAction(method)).Type("xml").
+	_, body, errs := gorequest.New().Post(s.soapAction(method)).Type("xml").
 		AppendHeader("Content-Type", "text/xml;charset=UTF-8").
 		SendString(request).End()
 
-	if errLen := len(errs); errLen > 0 {
-		return nil, errs[errLen-1]
+	if err := util.ShiftError(errs); err != nil {
+		return nil, err
 	}
 
 	data = bytes.NewBufferString(body).Bytes()

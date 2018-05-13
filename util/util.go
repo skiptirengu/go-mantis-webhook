@@ -15,3 +15,11 @@ func MapStringSlice(slc interface{}, f func(val interface{}) (string)) ([]string
 
 	return res
 }
+
+func ShiftError(errs []error) (error) {
+	if errLen := len(errs); errLen > 0 {
+		return errs[errLen-1]
+	} else {
+		return nil
+	}
+}

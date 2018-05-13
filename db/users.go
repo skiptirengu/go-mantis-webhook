@@ -24,7 +24,7 @@ type UsersTable struct {
 func (u users) Get(email string) (*UsersTable, error) {
 	const query = `
 		select u.id, u.name, case when u.email is null then a.email else u.email end as email from users u
-		join aliases a on u.email = a.email where u.email = $1 or a.email = $2
+		left join aliases a on u.email = a.email where u.email = $1 or a.email = $2
 	`
 
 	rows, err := u.db.Query(query, email, email)

@@ -10,6 +10,8 @@ import (
 	"github.com/skiptirengu/go-mantis-webhook/db"
 	"strings"
 	"github.com/skiptirengu/go-mantis-webhook/mantis"
+	"github.com/skiptirengu/go-mantis-webhook/util"
+	"strconv"
 )
 
 const pushEventMaxCommits = 20
@@ -33,6 +35,7 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 		return
 	}
 
+	// TODO use the api to get all commits using before and after refs
 	if event.TotalCommitsCount > pushEventMaxCommits {
 		log.Printf("This push have %d commits, processing only the first %d commits", event.TotalCommitsCount, pushEventMaxCommits)
 	}
@@ -49,13 +52,20 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 			return
 		}
 
-		issues := hook.extractIssues(event.Commits)
+		issues, err := hook.extractIssues(event.Commits)
+		if err != nil {
+			log.Println(err)
+			return
+		}
 		if len(issues) == 0 {
 			return
 		}
 
-		userCache := make(map[string]*db.UsersTable, len(issues))
-		for email := range issues {
+		var (
+			closedIssues = make([]int, 0)
+			userCache    = make(map[string]*db.UsersTable, len(issues))
+		)
+		for email, issue := range issues {
 			var (
 				user *db.UsersTable
 				ok   bool
@@ -64,10 +74,14 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 
 			if user, ok = userCache[email]; !ok {
 				user, err = db.Users.Get(email)
-			} else if !synced {
-				mantis.SyncProjectUsers(project.Mantis)
-				synced = true
-				user, err = db.Users.Get(email)
+				switch err {
+				case db.UserNotFound:
+					if !synced {
+						mantis.SyncProjectUsers(project.Mantis)
+						user, err = db.Users.Get(email)
+						synced = true
+					}
+				}
 			}
 
 			if err != nil {
@@ -80,20 +94,57 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 				userCache[email] = user
 			}
 
-			//TODO close issue
+			if err = mantis.Rest.CloseIssue(issue.ID); err != nil {
+				log.Println(err)
+				continue
+			}
+
+			if err = db.Issues.Close(issue.ID, issue.CommitHash, user.Email); err != nil {
+				log.Println(err)
+				continue
+			}
+
+			closedIssues = append(closedIssues, issue.ID)
+		}
+
+		if l := len(closedIssues); l > 0 {
+			mapped := util.MapStringSlice(closedIssues, func(v interface{}) string { return strconv.Itoa(v.(int)) })
+			log.Printf("Webhook call closed %d issues (%s)", l, strings.Join(mapped, ", "))
 		}
 	}()
 }
 
-func (webhook) extractIssues(commits []commits) (map[string]string) {
-	var issues = make(map[string]string, len(commits))
-	for _, commit := range commits {
-		for _, issueId := range commitRegex.FindAllString(commit.Message, -1) {
-			issueId = strings.Replace(issueId, "#", "", -1)
-			issues[commit.Author.Email] = issueId
+func (hook webhook) extractIssues(c []commits) (map[string]*commitWithID, error) {
+	var (
+		issues      = make(map[string]*commitWithID, len(c))
+		mapped      = util.MapStringSlice(c, func(val interface{}) string { return val.(commits).ID })
+		closed, err = db.Issues.Closed(mapped)
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, commit := range c {
+		// Skip already closed issues
+		if _, ok := closed[commit.ID]; ok {
+			continue
+		}
+		// Scan all issues closed on this commit
+		for _, strIssueId := range commitRegex.FindAllString(commit.Message, -1) {
+			// The regex matches the issue id prefixed with #
+			strIssueId = strings.Replace(strIssueId, "#", "", -1)
+			// Being unable to parse the int value means our regex is probably bugged :p
+			intIssueId, err := strconv.Atoi(strIssueId)
+			if err != nil {
+				log.Printf("Cannot convert string(%s) to int wrong regex match?", strIssueId)
+				continue
+			}
+			issues[commit.Author.Email] = &commitWithID{intIssueId, commit.ID}
 		}
 	}
-	return issues
+
+	return issues, nil
 }
 
 func (hook webhook) getProject(projectWithNamespace string) (*db.ProjectsTable, error) {
@@ -111,43 +162,24 @@ func (hook webhook) getProject(projectWithNamespace string) (*db.ProjectsTable, 
 	}
 }
 
-func (hook webhook) tryImportUser() () {
-
+type commitWithID struct {
+	ID         int
+	CommitHash string
 }
 
 type pushEvent struct {
-	ObjectKind        string     `json:"object_kind"`
-	Before            string     `json:"before"`
-	After             string     `json:"after"`
-	Ref               string     `json:"ref"`
-	CheckoutSha       string     `json:"checkout_sha"`
-	UserID            int        `json:"user_id"`
-	UserName          string     `json:"user_name"`
-	UserUsername      string     `json:"user_username"`
-	UserEmail         string     `json:"user_email"`
-	UserAvatar        string     `json:"user_avatar"`
-	ProjectID         int        `json:"project_id"`
-	Project           project    `json:"project"`
-	Repository        repository `json:"repository"`
-	Commits           []commits  `json:"commits"`
-	TotalCommitsCount int        `json:"total_commits_count"`
-}
-
-type repository struct {
-	Name            string `json:"name"`
-	URL             string `json:"url"`
-	Description     string `json:"description"`
-	Homepage        string `json:"homepage"`
-	GitHTTPURL      string `json:"git_http_url"`
-	GitSSHURL       string `json:"git_ssh_url"`
-	VisibilityLevel int    `json:"visibility_level"`
+	Before            string    `json:"before"`
+	After             string    `json:"after"`
+	Ref               string    `json:"ref"`
+	Project           project   `json:"project"`
+	Commits           []commits `json:"commits"`
+	TotalCommitsCount int       `json:"total_commits_count"`
 }
 
 type commits struct {
 	ID        string    `json:"id"`
 	Message   string    `json:"message"`
 	Timestamp time.Time `json:"timestamp"`
-	URL       string    `json:"url"`
 	Author    author    `json:"author"`
 }
 
@@ -160,11 +192,5 @@ type project struct {
 	ID                int    `json:"id"`
 	Name              string `json:"name"`
 	Description       string `json:"description"`
-	WebURL            string `json:"web_url"`
-	Namespace         string `json:"namespace"`
-	VisibilityLevel   int    `json:"visibility_level"`
 	PathWithNamespace string `json:"path_with_namespace"`
-	DefaultBranch     string `json:"default_branch"`
-	Homepage          string `json:"homepage"`
-	URL               string `json:"url"`
 }
