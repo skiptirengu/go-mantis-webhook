@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	Users        = users{}
+	Users        = users{Get()}
 	UserNotFound = errors.New("user not found")
 )
 
@@ -50,6 +50,6 @@ func (u users) CreateOrUpdate(id int, name, email string) (*UsersTable, error) {
 	if _, err := u.db.Exec(query, id, name, email, name, email); err != nil {
 		return nil, err
 	} else {
-		return &UsersTable{}, nil
+		return &UsersTable{id, name, email}, nil
 	}
 }
