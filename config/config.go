@@ -8,16 +8,16 @@ import (
 )
 
 var (
-	config      *configs
+	config      *Configs
 	configMutex = sync.Mutex{}
 )
 
-func Get() (*configs) {
+func Get() (*Configs) {
 	configMutex.Lock()
 	defer configMutex.Unlock()
 
 	if config == nil {
-		config = &configs{}
+		config = &Configs{}
 
 		if bytes, err := ioutil.ReadFile("config.json"); err != nil {
 			log.Fatal(err)
@@ -29,7 +29,7 @@ func Get() (*configs) {
 	return config
 }
 
-type configs struct {
+type Configs struct {
 	Secret       string             `json:"secret"`
 	Repositories []repositoryConfig `json:"repositories"`
 	Database     databaseConfig     `json:"database"`

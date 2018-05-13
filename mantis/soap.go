@@ -4,25 +4,42 @@ import (
 	"fmt"
 	"bytes"
 	"encoding/xml"
-	"html/template"
-	"github.com/skiptirengu/go-mantis-webhook/config"
 	"errors"
 	"github.com/parnurzeal/gorequest"
+	"github.com/skiptirengu/go-mantis-webhook/config"
+	"html/template"
 )
 
-var (
+const (
 	mcProjectGetUsersXML = `<soapenv:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:man="http://futureware.biz/mantisconnect">
-   		<soapenv:Header/>
-   		<soapenv:Body>
-      		<man:mc_project_get_users soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+		<soapenv:Header/>
+		<soapenv:Body>
+			<man:mc_project_get_users soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 				<username xsi:type="xsd:string">{{.Username}}</username>
 				<password xsi:type="xsd:string">{{.Password}}</password>
 				<project_id xsi:type="xsd:integer">{{.ProjectID}}</project_id>
 				<access xsi:type="xsd:integer">0</access>
-      		</man:mc_project_get_users>
-   		</soapenv:Body>
+			</man:mc_project_get_users>
+		</soapenv:Body>
+	</soapenv:Envelope>`
+
+	mcProjectGetIdFromNameXML = `<soapenv:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:man="http://futureware.biz/mantisconnect">
+		<soapenv:Header/>
+		<soapenv:Body>
+			<man:mc_project_get_id_from_name soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+				<username xsi:type="xsd:string">{{.Username}}</username>
+				<password xsi:type="xsd:string">{{.Password}}</password>
+				<project_name xsi:type="xsd:string">{{.ProjectName}}</project_name>
+			</man:mc_project_get_id_from_name>
+		</soapenv:Body>
 	</soapenv:Envelope>`
 )
+
+var Soap = soap{config.Get()}
+
+type soap struct {
+	conf *config.Configs
+}
 
 func soapEndpoint() (string) {
 	return fmt.Sprintf("%s/api/soap/mantisconnect.php", getHost())
@@ -32,34 +49,50 @@ func soapAction(method string) (string) {
 	return fmt.Sprintf("%s/%s", soapEndpoint(), method)
 }
 
-func ProjectGetUsers(projectId int) (*ProjectGetUsersResponse, error) {
+func (s soap) ProjectGetIdFromName(name string) (int, error) {
 	var (
-		mantisConfig  = config.Get().Mantis
-		requestBody   = bytes.NewBufferString("")
-		requestParams = projectGetUsersRequest{
-			Username:  mantisConfig.User,
-			Password:  mantisConfig.Password,
-			ProjectID: projectId,
-		}
+		params = projectGetIdFromNameRequest{s.conf.Mantis.User, s.conf.Mantis.Password, name}
+		resp   = &ProjectGetIdFromNameResponse{}
 	)
 
-	requestXML := template.Must(template.New("ProjectGetUsers").Parse(mcProjectGetUsersXML))
-	if err := requestXML.Execute(requestBody, requestParams); err != nil {
-		return nil, err
+	if err := xmlMakeSoapRequest("mc_project_get_id_from_name", mcProjectGetIdFromNameXML, params, resp); err != nil {
+		return 0, err
+	} else {
+		return resp.ID, nil
 	}
-
-	data, err := SoapRequest("mc_project_get_users", string(requestBody.Bytes()))
-	if err != nil {
-		return nil, err
-	}
-
-	resp := &ProjectGetUsersResponse{}
-	err = xml.Unmarshal(data, resp)
-
-	return resp, err
 }
 
-func SoapRequest(method string, request string) ([]byte, error) {
+func (s soap) ProjectGetUsers(projectId int) ([]AccountData, error) {
+	var (
+		params = projectGetUsersRequest{s.conf.Mantis.User, s.conf.Mantis.Password, projectId}
+		resp   = &ProjectGetUsersResponse{}
+	)
+
+	if err := xmlMakeSoapRequest("mc_project_get_users", mcProjectGetUsersXML, params, resp); err != nil {
+		return nil, err
+	} else {
+		return resp.Accounts, nil
+	}
+}
+
+func xmlMakeSoapRequest(method, xmlTemplate string, params, result interface{}) (error) {
+	var body = bytes.NewBufferString("")
+
+	requestXML := template.Must(template.New(method).Parse(xmlTemplate))
+
+	if err := requestXML.Execute(body, params); err != nil {
+		return err
+	}
+
+	data, err := makeRequest("mc_project_get_users", string(body.Bytes()))
+	if err != nil {
+		return err
+	}
+
+	return xml.Unmarshal(data, result)
+}
+
+func makeRequest(method string, request string) ([]byte, error) {
 	var (
 		data  []byte
 		fault = &faultResponse{}
@@ -90,7 +123,11 @@ type AccountData struct {
 }
 
 type ProjectGetUsersResponse struct {
-	Result []AccountData `xml:"Body>mc_project_get_usersResponse>return>item"`
+	Accounts []AccountData `xml:"Body>mc_project_get_usersResponse>return>item"`
+}
+
+type ProjectGetIdFromNameResponse struct {
+	ID int `xml:"Body>mc_project_get_id_from_nameResponse>return"`
 }
 
 type faultResponse struct {
@@ -102,4 +139,10 @@ type projectGetUsersRequest struct {
 	Username  string
 	Password  string
 	ProjectID int
+}
+
+type projectGetIdFromNameRequest struct {
+	Username    string
+	Password    string
+	ProjectName string
 }
