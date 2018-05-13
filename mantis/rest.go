@@ -32,13 +32,16 @@ func (r rest) restEndpoint() (string) {
 	return fmt.Sprintf("%s/api/rest", getHost())
 }
 
-func (r rest) CloseIssue(id int) (error) {
-	var (
-		action  = r.restAction("issues", strconv.Itoa(id))
-		request = &closeIssueRequest{
-			Status: closeIssueRequestStatus{closedIssueStatusID},
-		}
-	)
+func (r rest) CloseIssue(id int, userID int) (error) {
+	var request = &closeIssueRequest{
+		Status:  closeIssueRequestStatus{closedIssueStatusID},
+		Handler: closeIssueRequestHandler{userID},
+	}
+	return r.makeCloseIssueRequest(id, request)
+}
+
+func (r rest) makeCloseIssueRequest(id int, request *closeIssueRequest) (error) {
+	var action = r.restAction("issues", strconv.Itoa(id))
 	_, err := r.makeRequest("PATCH", action, request)
 	return err
 }
@@ -82,7 +85,12 @@ func (r rest) makeRequest(method, action string, body interface{}, response ...i
 }
 
 type closeIssueRequest struct {
-	Status closeIssueRequestStatus `json:"status"`
+	Status  closeIssueRequestStatus  `json:"status"`
+	Handler closeIssueRequestHandler `json:"handler,omitempty"`
+}
+
+type closeIssueRequestHandler struct {
+	ID int `json:"id,omitempty"`
 }
 
 type closeIssueRequestStatus struct {

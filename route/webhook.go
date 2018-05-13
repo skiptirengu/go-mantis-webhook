@@ -58,6 +58,7 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 			return
 		}
 		if len(issues) == 0 {
+			log.Println("No closeable commits found. Skipping...")
 			return
 		}
 
@@ -67,9 +68,10 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 		)
 		for email, issue := range issues {
 			var (
-				user *db.UsersTable
-				ok   bool
-				err  error
+				user      *db.UsersTable
+				ok        bool
+				err       error
+				userEmail string
 			)
 
 			if user, ok = userCache[email]; !ok {
@@ -82,6 +84,7 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 						synced = true
 					}
 				}
+				err = nil
 			}
 
 			if err != nil {
@@ -89,17 +92,18 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 				continue
 			} else if user == nil {
 				log.Printf("Unable to find user with email %s", email)
-				continue
 			} else {
+				userEmail = user.Email
 				userCache[email] = user
 			}
 
-			if err = mantis.Rest.CloseIssue(issue.ID); err != nil {
-				log.Println(err)
-				continue
+			if user == nil {
+				err = mantis.Rest.CloseIssue(issue.ID, 0)
+			} else {
+				err = mantis.Rest.CloseIssue(issue.ID, user.ID)
 			}
 
-			if err = db.Issues.Close(issue.ID, issue.CommitHash, user.Email); err != nil {
+			if err = db.Issues.Close(issue.ID, issue.CommitHash, userEmail); err != nil {
 				log.Println(err)
 				continue
 			}

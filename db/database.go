@@ -48,6 +48,16 @@ func ScanCol(r *sql.Rows, v interface{}) (error) {
 	return r.Scan(v)
 }
 
+func NullableStr(val string) (sql.NullString) {
+	if len(val) == 0 {
+		return sql.NullString{}
+	}
+	return sql.NullString{
+		Valid:  true,
+		String: val,
+	}
+}
+
 func getAppliedMigrations() (map[string]*Migration) {
 	var (
 		db     = Get()

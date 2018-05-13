@@ -21,7 +21,8 @@ type IssuesTable struct {
 }
 
 func (i issues) Close(issueID int, commitHash, email string) (error) {
-	_, err := i.db.Exec("insert into issues (commit_hash, issue_id, email) values ($1, $2, $3)", commitHash, issueID, email)
+	const insertSql = "insert into issues (commit_hash, issue_id, email) values ($1, $2, $3)"
+	_, err := i.db.Exec(insertSql, commitHash, issueID, NullableStr(email))
 	return err
 }
 
