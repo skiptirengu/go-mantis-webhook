@@ -36,13 +36,13 @@ This is an example of `config.json` you need to create on the root directory on 
 # Endpoints
 
 ### Webhook
-All requests under `/webhook` are authorized by the token you set on your Gitlab repository. The webhook will compare it with the token you set on the `config.json` under `gitlab.token`.
+All requests under `/webhook` are authorized by the token you set on your Gitlab repository. The webhook will check for it under the request's `X-Gitlab-Token` header and compare it with the token you set on the `config.json` under `gitlab.token`.
 
 #### POST /webhook/push
 The endpoint you need to register on your [Gitlab repository](https://docs.gitlab.com/ee/user/project/integrations/webhooks.html).
 
 ### Application
-All requests under `/app` are authorized by the token you set on you `config.json` under `secret`. The app you check for the token under the `Authorization` header of the request.
+All requests under `/app` are authorized by the token you set on you `config.json` under `secret`. The app will check for the token under the request's `Authorization` header.
 
 #### POST /app/projects
 Associates a new Gitlab project with a Mantis one.
