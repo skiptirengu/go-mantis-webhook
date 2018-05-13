@@ -33,6 +33,10 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 		return
 	}
 
+	if event.TotalCommitsCount > pushEventMaxCommits {
+		log.Printf("This push have %d commits, processing only the first %d commits", event.TotalCommitsCount, pushEventMaxCommits)
+	}
+
 	w.WriteHeader(http.StatusOK)
 
 	// Do all processing on background
