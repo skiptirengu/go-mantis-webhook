@@ -9,6 +9,7 @@ import (
 	"log"
 	"github.com/skiptirengu/go-mantis-webhook/db"
 	"strings"
+	"github.com/skiptirengu/go-mantis-webhook/mantis"
 )
 
 const pushEventMaxCommits = 20
@@ -24,10 +25,7 @@ var Webhook = webhook{}
 type webhook struct{}
 
 func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var (
-		event = pushEvent{}
-		err   error
-	)
+	var event = pushEvent{}
 
 	if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
 		log.Print("Unable to parse webhook body", err)
@@ -35,27 +33,63 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 		return
 	}
 
-	_, err = hook.getProject(event.Project.PathWithNamespace)
-	if err != nil {
-		return
-	}
+	w.WriteHeader(http.StatusOK)
 
-	_ := extractIssues(event.Commits)
+	// Do all processing on background
+	go func() {
+		var synced = false
 
-	// TODO actual implementation
-	return
+		project, err := hook.getProject(event.Project.PathWithNamespace)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		issues := hook.extractIssues(event.Commits)
+		if len(issues) == 0 {
+			return
+		}
+
+		userCache := make(map[string]*db.UsersTable, len(issues))
+		for email := range issues {
+			var (
+				user *db.UsersTable
+				ok   bool
+				err  error
+			)
+
+			if user, ok = userCache[email]; !ok {
+				user, err = db.Users.Get(email)
+			} else if !synced {
+				mantis.SyncProjectUsers(project.Mantis)
+				synced = true
+				user, err = db.Users.Get(email)
+			}
+
+			if err != nil {
+				log.Println(err)
+				continue
+			} else if user == nil {
+				log.Printf("Unable to find user with email %s", email)
+				continue
+			} else {
+				userCache[email] = user
+			}
+
+			//TODO close issue
+		}
+	}()
 }
 
-func extractIssues(commits []commits) (*map[string]string) {
+func (webhook) extractIssues(commits []commits) (map[string]string) {
 	var issues = make(map[string]string, len(commits))
 	for _, commit := range commits {
-		// Check if the body contains any information we need first
 		for _, issueId := range commitRegex.FindAllString(commit.Message, -1) {
 			issueId = strings.Replace(issueId, "#", "", -1)
 			issues[commit.Author.Email] = issueId
 		}
 	}
-	return &issues
+	return issues
 }
 
 func (hook webhook) getProject(projectWithNamespace string) (*db.ProjectsTable, error) {
