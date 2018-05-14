@@ -29,7 +29,7 @@ func (r rest) restAction(method string, params ...string) (string) {
 }
 
 func (r rest) restEndpoint() (string) {
-	return fmt.Sprintf("%s/api/rest", getHost())
+	return fmt.Sprintf("%s/api/rest", getHost(r.conf))
 }
 
 func (r rest) CloseIssue(id int, userID int) (error) {

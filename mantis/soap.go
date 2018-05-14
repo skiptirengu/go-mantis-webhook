@@ -43,7 +43,7 @@ type soap struct {
 }
 
 func (s soap) soapEndpoint() (string) {
-	return fmt.Sprintf("%s/api/soap/mantisconnect.php", getHost())
+	return fmt.Sprintf("%s/api/soap/mantisconnect.php", getHost(s.conf))
 }
 
 func (s soap) soapAction(method string) (string) {

@@ -1,13 +1,13 @@
 package mantis
 
 import (
-	"github.com/skiptirengu/go-mantis-webhook/config"
 	"log"
 	"github.com/skiptirengu/go-mantis-webhook/db"
+	"github.com/skiptirengu/go-mantis-webhook/config"
 )
 
-func getHost() (host string) {
-	if host = config.Get().Mantis.Host; host == "" {
+func getHost(conf *config.Configs) (host string) {
+	if host = conf.Mantis.Host; host == "" {
 		log.Fatal("Mantis host is empty")
 	}
 	return
