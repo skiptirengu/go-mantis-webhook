@@ -44,8 +44,6 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 
 	// Do all processing on background
 	go func() {
-		var synced = false
-
 		project, err := hook.getProject(event.Project.PathWithNamespace)
 		if err != nil {
 			log.Println(err)
@@ -63,6 +61,7 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 		}
 
 		var (
+			synced       = false
 			closedIssues = make([]int, 0)
 			userCache    = make(map[string]*db.UsersTable, len(issues))
 		)
