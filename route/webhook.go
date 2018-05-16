@@ -13,6 +13,8 @@ import (
 	"github.com/skiptirengu/go-mantis-webhook/util"
 	"strconv"
 	"github.com/skiptirengu/go-mantis-webhook/config"
+	"fmt"
+	"errors"
 )
 
 const pushEventMaxCommits = 20
@@ -88,9 +90,10 @@ func (h webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 						mantis.SyncProjectUsers(h.conf, h.db, project.Mantis)
 						user, err = h.db.Users().Get(email)
 						synced = true
+					} else {
+						err = nil
 					}
 				}
-				err = nil
 			}
 
 			if err != nil {
@@ -147,7 +150,7 @@ func (h webhook) extractIssues(c []commits) (map[string]*commitWithID, error) {
 			// Being unable to parse the int value means our regex is probably bugged :p
 			intIssueId, err := strconv.Atoi(strIssueId)
 			if err != nil {
-				log.Printf("Cannot convert string(%s) to int wrong regex match?", strIssueId)
+				log.Printf("Cannot convert string(%s) to int, wrong regex match?", strIssueId)
 				continue
 			}
 			issues[commit.Author.Email] = &commitWithID{intIssueId, commit.ID}
@@ -161,10 +164,8 @@ func (h webhook) getProject(projectWithNamespace string) (*db.ProjectsTable, err
 	if p, err := h.db.Projects().Get(projectWithNamespace); err != nil {
 		switch err {
 		case db.ProjectNotFound:
-			log.Printf("Unable to find a mantis project vinculated to the gilab project \"%s\"", projectWithNamespace)
-			return nil, err
+			return nil, errors.New(fmt.Sprintf("Unable to find a mantis project vinculated to the gilab project \"%s\"", projectWithNamespace))
 		default:
-			log.Println(err)
 			return nil, err
 		}
 	} else {
