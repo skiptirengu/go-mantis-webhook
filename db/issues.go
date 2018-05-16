@@ -7,8 +7,6 @@ import (
 	"github.com/kisielk/sqlstruct"
 )
 
-var Issues = issues{Get()}
-
 type issues struct {
 	db *sql.DB
 }

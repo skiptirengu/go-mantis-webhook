@@ -12,6 +12,7 @@ import (
 	"github.com/skiptirengu/go-mantis-webhook/mantis"
 	"github.com/skiptirengu/go-mantis-webhook/util"
 	"strconv"
+	"github.com/skiptirengu/go-mantis-webhook/config"
 )
 
 const pushEventMaxCommits = 20
@@ -22,11 +23,16 @@ var (
 	commitRegex, _ = regexp.Compile("(?m)#[1-9]\\d*")
 )
 
-var Webhook = webhook{}
+type webhook struct {
+	conf *config.Configuration
+	db   db.Database
+}
 
-type webhook struct{}
+func Webhook(c *config.Configuration, db db.Database) (*webhook) {
+	return &webhook{c, db}
+}
 
-func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (h webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var event = pushEvent{}
 
 	if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
@@ -44,13 +50,13 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 
 	// Do all processing on background
 	go func() {
-		project, err := hook.getProject(event.Project.PathWithNamespace)
+		project, err := h.getProject(event.Project.PathWithNamespace)
 		if err != nil {
 			log.Println(err)
 			return
 		}
 
-		issues, err := hook.extractIssues(event.Commits)
+		issues, err := h.extractIssues(event.Commits)
 		if err != nil {
 			log.Println(err)
 			return
@@ -61,6 +67,7 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 		}
 
 		var (
+			restService  = mantis.NewRestService(h.conf)
 			synced       = false
 			closedIssues = make([]int, 0)
 			userCache    = make(map[string]*db.UsersTable, len(issues))
@@ -74,12 +81,12 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 			)
 
 			if user, ok = userCache[email]; !ok {
-				user, err = db.Users.Get(email)
+				user, err = h.db.Users().Get(email)
 				switch err {
 				case db.UserNotFound:
 					if !synced {
-						mantis.SyncProjectUsers(project.Mantis)
-						user, err = db.Users.Get(email)
+						mantis.SyncProjectUsers(h.conf, h.db, project.Mantis)
+						user, err = h.db.Users().Get(email)
 						synced = true
 					}
 				}
@@ -97,12 +104,12 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 			}
 
 			if user == nil {
-				err = mantis.Rest.CloseIssue(issue.ID, 0)
+				err = restService.CloseIssue(issue.ID, 0)
 			} else {
-				err = mantis.Rest.CloseIssue(issue.ID, user.ID)
+				err = restService.CloseIssue(issue.ID, user.ID)
 			}
 
-			if err = db.Issues.Close(issue.ID, issue.CommitHash, userEmail); err != nil {
+			if err = h.db.Issues().Close(issue.ID, issue.CommitHash, userEmail); err != nil {
 				log.Println(err)
 				continue
 			}
@@ -117,11 +124,11 @@ func (hook webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 	}()
 }
 
-func (hook webhook) extractIssues(c []commits) (map[string]*commitWithID, error) {
+func (h webhook) extractIssues(c []commits) (map[string]*commitWithID, error) {
 	var (
 		issues      = make(map[string]*commitWithID, len(c))
 		mapped      = util.MapStringSlice(c, func(val interface{}) string { return val.(commits).ID })
-		closed, err = db.Issues.Closed(mapped)
+		closed, err = h.db.Issues().Closed(mapped)
 	)
 
 	if err != nil {
@@ -150,8 +157,8 @@ func (hook webhook) extractIssues(c []commits) (map[string]*commitWithID, error)
 	return issues, nil
 }
 
-func (hook webhook) getProject(projectWithNamespace string) (*db.ProjectsTable, error) {
-	if p, err := db.Projects.Get(projectWithNamespace); err != nil {
+func (h webhook) getProject(projectWithNamespace string) (*db.ProjectsTable, error) {
+	if p, err := h.db.Projects().Get(projectWithNamespace); err != nil {
 		switch err {
 		case db.ProjectNotFound:
 			log.Printf("Unable to find a mantis project vinculated to the gilab project \"%s\"", projectWithNamespace)

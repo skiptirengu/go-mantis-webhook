@@ -6,15 +6,16 @@ import (
 	"github.com/skiptirengu/go-mantis-webhook/config"
 )
 
-func getHost(conf *config.Configs) (host string) {
+func getHost(conf *config.Configuration) (host string) {
 	if host = conf.Mantis.Host; host == "" {
 		log.Fatal("Mantis host is empty")
 	}
 	return
 }
 
-func SyncProjectUsers(projectName string) {
-	projectId, err := Soap.ProjectGetIdFromName(projectName)
+func SyncProjectUsers(c *config.Configuration, db db.Database, projectName string) {
+	service := NewSoapService(c)
+	projectId, err := service.ProjectGetIdFromName(projectName)
 
 	if err != nil {
 		log.Println(err)
@@ -24,14 +25,14 @@ func SyncProjectUsers(projectName string) {
 		return
 	}
 
-	accounts, err := Soap.ProjectGetUsers(projectId)
+	accounts, err := service.ProjectGetUsers(projectId)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
 	for _, account := range accounts {
-		if _, err := db.Users.CreateOrUpdate(account.Id, account.Name, account.Email); err != nil {
+		if _, err := db.Users().CreateOrUpdate(account.Id, account.Name, account.Email); err != nil {
 			log.Println(err)
 		}
 	}

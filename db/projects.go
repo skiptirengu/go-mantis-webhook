@@ -6,10 +6,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	Projects        = projects{Get()}
-	ProjectNotFound = errors.New("project not found")
-)
+var ProjectNotFound = errors.New("project not found")
 
 type projects struct {
 	db *sql.DB

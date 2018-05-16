@@ -13,7 +13,7 @@ create table users
   name  citext,
   email citext not null
 );
-create unique index unique_email
+create unique index unique_user_email
   on users (lower(email));
 
 create table aliases
@@ -21,8 +21,8 @@ create table aliases
   email citext not null primary key,
   alias citext not null
 );
-create unique index unique_alias
-  on aliases (lower(alias));
+create unique index unique_alias_email
+  on aliases (lower(email));
 
 create table issues
 (

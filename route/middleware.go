@@ -7,10 +7,12 @@ import (
 	"github.com/skiptirengu/go-mantis-webhook/config"
 )
 
-var Middleware = middleware{config.Get()}
-
 type middleware struct {
-	conf *config.Configs
+	conf *config.Configuration
+}
+
+func NewMiddleware(c *config.Configuration) (*middleware) {
+	return &middleware{c}
 }
 
 func (m *middleware) App(next httprouter.Handle) httprouter.Handle {

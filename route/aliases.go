@@ -7,28 +7,35 @@ import (
 	"github.com/skiptirengu/go-mantis-webhook/db"
 )
 
-var Aliases = aliases{}
-
-type aliases struct{}
+type aliases struct {
+	db db.Database
+}
 
 type addAliasRequest struct {
 	Email string `json:"email"`
 	Alias string `json:"alias"`
 }
 
-func (*aliases) Add(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var request = addAliasRequest{}
+func Aliases(db db.Database) (*aliases) {
+	return &aliases{db}
+}
+
+func (a aliases) Add(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	var (
+		request  = addAliasRequest{}
+		database = a.db.Aliases()
+	)
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		ErrorResponse.Send(w, http.StatusInternalServerError)
 		return
 	}
 
-	if db.Aliases.CheckExist(request.Alias) {
-		ErrorResponse.SendWithMessage(w, http.StatusBadRequest, "Alias already exists")
+	if database.CheckExist(request.Email) {
+		ErrorResponse.SendWithMessage(w, http.StatusBadRequest, "An alias for this email already exists")
 		return
 	}
 
-	res, err := db.Aliases.Create(request.Email, request.Alias)
+	res, err := database.Create(request.Email, request.Alias)
 	DataResponse.Send(w, res, err)
 }

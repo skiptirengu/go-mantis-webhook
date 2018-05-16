@@ -15,10 +15,12 @@ import (
 const closedIssueStatusID = 80
 
 type rest struct {
-	conf *config.Configs
+	conf *config.Configuration
 }
 
-var Rest = rest{config.Get()}
+func NewRestService(c *config.Configuration) (*rest) {
+	return &rest{c}
+}
 
 func (r rest) restAction(method string, params ...string) (string) {
 	action := fmt.Sprintf("%s/%s", r.restEndpoint(), method)
@@ -71,7 +73,7 @@ func (r rest) makeRequest(method, action string, body interface{}, response ...i
 
 	resp, _, errs := req.End()
 
-	if err = util.ShiftError(errs); err != nil {
+	if err = util.PopError(errs); err != nil {
 		return nil, err
 	} else if resp.StatusCode >= 400 {
 		return nil, errors.New(http.StatusText(resp.StatusCode))

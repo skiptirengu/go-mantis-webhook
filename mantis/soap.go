@@ -9,6 +9,7 @@ import (
 	"github.com/skiptirengu/go-mantis-webhook/config"
 	"html/template"
 	"github.com/skiptirengu/go-mantis-webhook/util"
+	"io/ioutil"
 )
 
 const (
@@ -36,10 +37,62 @@ const (
 	</soapenv:Envelope>`
 )
 
-var Soap = soap{config.Get()}
+type AccountData struct {
+	Id    int    `xml:"id"`
+	Name  string `xml:"name"`
+	Email string `xml:"email"`
+}
+
+type ProjectGetUsersResponse struct {
+	Accounts []AccountData `xml:"Body>mc_project_get_usersResponse>return>item"`
+}
+
+type ProjectGetIdFromNameResponse struct {
+	ID int `xml:"Body>mc_project_get_id_from_nameResponse>return"`
+}
+
+type FaultResponse struct {
+	FaultCode   string `xml:"Body>Fault>faultcode"`
+	FaultString string `xml:"Body>Fault>faultstring"`
+}
+
+type projectGetUsersRequest struct {
+	Username  string
+	Password  string
+	ProjectID int
+}
+
+type projectGetIdFromNameRequest struct {
+	Username    string
+	Password    string
+	ProjectName string
+}
 
 type soap struct {
-	conf *config.Configs
+	conf      *config.Configuration
+	requester soapRequester
+}
+
+type soapRequester interface {
+	request(method string, request string) ([]byte, error)
+}
+
+type defaultSoapRequester struct{}
+
+func (defaultSoapRequester) request(method string, request string) ([]byte, error) {
+	resp, _, errs := gorequest.New().Post(method).Type("xml").
+		AppendHeader("Content-Type", "text/xml;charset=UTF-8").
+		SendString(request).End()
+
+	if err := util.PopError(errs); err != nil {
+		return nil, err
+	}
+
+	return ioutil.ReadAll(resp.Body)
+}
+
+func NewSoapService(c *config.Configuration) (*soap) {
+	return &soap{c, &defaultSoapRequester{}}
 }
 
 func (s soap) soapEndpoint() (string) {
@@ -96,54 +149,18 @@ func (s soap) xmlMakeSoapRequest(method, xmlTemplate string, params, result inte
 func (s soap) makeRequest(method string, request string) ([]byte, error) {
 	var (
 		data  []byte
-		fault = &faultResponse{}
+		fault = &FaultResponse{}
 	)
 
-	_, body, errs := gorequest.New().Post(s.soapAction(method)).Type("xml").
-		AppendHeader("Content-Type", "text/xml;charset=UTF-8").
-		SendString(request).End()
-
-	if err := util.ShiftError(errs); err != nil {
+	data, err := s.requester.request(s.soapAction(method), request)
+	if err != nil {
 		return nil, err
 	}
 
-	data = bytes.NewBufferString(body).Bytes()
 	xml.Unmarshal(data, fault)
-
 	if fault.FaultCode != "" {
 		return nil, errors.New(fault.FaultString)
 	}
 
 	return data, nil
-}
-
-type AccountData struct {
-	Id    int    `xml:"id"`
-	Name  string `xml:"name"`
-	Email string `xml:"email"`
-}
-
-type ProjectGetUsersResponse struct {
-	Accounts []AccountData `xml:"Body>mc_project_get_usersResponse>return>item"`
-}
-
-type ProjectGetIdFromNameResponse struct {
-	ID int `xml:"Body>mc_project_get_id_from_nameResponse>return"`
-}
-
-type faultResponse struct {
-	FaultCode   string `xml:"Body>Fault>faultcode"`
-	FaultString string `xml:"Body>Fault>faultstring"`
-}
-
-type projectGetUsersRequest struct {
-	Username  string
-	Password  string
-	ProjectID int
-}
-
-type projectGetIdFromNameRequest struct {
-	Username    string
-	Password    string
-	ProjectName string
 }

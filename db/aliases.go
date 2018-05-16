@@ -4,8 +4,6 @@ import (
 	"database/sql"
 )
 
-var Aliases = aliases{Get()}
-
 type aliases struct {
 	db *sql.DB
 }
@@ -15,9 +13,9 @@ type aliasesTable struct {
 	Alias string `json:"alias"`
 }
 
-func (a aliases) CheckExist(alias string) (bool) {
+func (a aliases) CheckExist(email string) (bool) {
 	var count int
-	res, _ := a.db.Query("select count(*) from aliases where alias = $1", alias)
+	res, _ := a.db.Query("select count(*) from aliases where email = $1", email)
 	ScanCol(res, &count)
 	return count > 0
 }

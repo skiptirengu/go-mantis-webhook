@@ -5,26 +5,27 @@ import (
 	"net/http"
 	"log"
 	"github.com/kisielk/sqlstruct"
-	"github.com/skiptirengu/go-mantis-webhook/db"
 	"github.com/skiptirengu/go-mantis-webhook/route"
 	"github.com/skiptirengu/go-mantis-webhook/config"
 	"fmt"
 	"strconv"
+	"github.com/skiptirengu/go-mantis-webhook/db"
 )
 
 func main() {
-	conf := config.Get()
-	if len(conf.Secret) < 10 {
-		log.Fatal("The configured secret is too small. Please set a new one on your config.json file.")
-	}
+	var (
+		conf       = config.Get()
+		router     = httprouter.New()
+		middleware = route.NewMiddleware(conf)
+		database   = db.Get()
+	)
 
 	sqlstruct.NameMapper = sqlstruct.ToSnakeCase
-	db.Migrate()
+	database.Migrate()
 
-	router := httprouter.New()
-	router.POST("/webhook/push", route.Middleware.AuthorizeWebhook(route.Webhook.Push))
-	router.POST("/app/projects", route.Middleware.App(route.Projects.Add))
-	router.POST("/app/aliases", route.Middleware.App(route.Aliases.Add))
+	router.POST("/webhook/push", middleware.AuthorizeWebhook(route.Webhook(conf, database).Push))
+	router.POST("/app/projects", middleware.App(route.Projects(database).Add))
+	router.POST("/app/aliases", middleware.App(route.Aliases(database).Add))
 
 	port := fmt.Sprintf(":%s", strconv.Itoa(conf.Port))
 	log.Printf("Webhook listening on %s", port)

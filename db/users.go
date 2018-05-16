@@ -6,10 +6,7 @@ import (
 	"github.com/kisielk/sqlstruct"
 )
 
-var (
-	Users        = users{Get()}
-	UserNotFound = errors.New("user not found")
-)
+var UserNotFound = errors.New("user not found")
 
 type users struct {
 	db *sql.DB

@@ -7,66 +7,75 @@ import (
 	"fmt"
 	"database/sql"
 	"log"
-	"io/ioutil"
+	"github.com/skiptirengu/go-mantis-webhook/config"
 	"sort"
 	"strings"
-	"os"
+	"io/ioutil"
 	"path"
-	"time"
 	"github.com/kisielk/sqlstruct"
-	"github.com/skiptirengu/go-mantis-webhook/config"
+	"os"
+	"time"
 )
 
 var (
-	databaseMutex = sync.Mutex{}
-	con           *sql.DB
+	connectionMu = sync.Mutex{}
+	con          *sql.DB
 )
 
-func Get() (*sql.DB) {
-	databaseMutex.Lock()
-	defer databaseMutex.Unlock()
+type Database interface {
+	Aliases() (*aliases)
+	Issues() (*issues)
+	Projects() (*projects)
+	Users() (*users)
+	GetDB() (*sql.DB)
+	Migrate()
+}
 
+type Migration struct {
+	Version   string
+	Timestamp time.Time
+}
+
+type Connection struct {
+	db   *sql.DB
+	conf *config.Configuration
+}
+
+func (c *Connection) GetDB() (*sql.DB) {
+	return c.db
+}
+
+func (c *Connection) Aliases() (*aliases) {
+	return &aliases{c.db}
+}
+
+func (c *Connection) Issues() (*issues) {
+	return &issues{c.db}
+}
+
+func (c *Connection) Projects() (*projects) {
+	return &projects{c.db}
+}
+
+func (c *Connection) Users() (*users) {
+	return &users{c.db}
+}
+
+func Get() (Database) {
+	c := config.Get()
+	con := Connection{connectDatabase(c), c}
+	return &con
+}
+
+func (c *Connection) getAppliedMigrations() (map[string]*Migration) {
 	var (
-		conf    = config.Get().Database
-		connStr = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", conf.User, conf.Password, conf.Host, conf.DatabaseName)
-		err     error
-	)
-
-	if con != nil {
-		return con
-	}
-
-	if con, err = sql.Open("postgres", connStr); err != nil {
-		log.Fatal(err)
-	}
-
-	return con
-}
-
-func ScanCol(r *sql.Rows, v interface{}) (error) {
-	r.Next()
-	return r.Scan(v)
-}
-
-func NullableStr(val string) (sql.NullString) {
-	if len(val) == 0 {
-		return sql.NullString{}
-	}
-	return sql.NullString{
-		Valid:  true,
-		String: val,
-	}
-}
-
-func getAppliedMigrations() (map[string]*Migration) {
-	var (
-		db     = Get()
+		db     = c.GetDB()
 		rows   = make(map[string]*Migration)
 		err    error
 		dbRows *sql.Rows
 	)
 
-	createMigrationTable()
+	c.createMigrationTable()
 
 	if dbRows, err = db.Query("select version, timestamp from migrations"); err != nil {
 		log.Fatal(err)
@@ -81,8 +90,8 @@ func getAppliedMigrations() (map[string]*Migration) {
 	return rows
 }
 
-func createMigrationTable() {
-	_, err := Get().Exec(`
+func (c *Connection) createMigrationTable() {
+	_, err := c.GetDB().Exec(`
 		create table if not exists migrations (
   			version   varchar not null,
   			timestamp timestamp without time zone default (now() at time zone 'utc')
@@ -94,7 +103,7 @@ func createMigrationTable() {
 	}
 }
 
-func getMigrationsToApply() ([]os.FileInfo) {
+func (c *Connection) getMigrationsToApply() ([]os.FileInfo) {
 	files, err := ioutil.ReadDir("migrations")
 
 	if err != nil {
@@ -108,11 +117,11 @@ func getMigrationsToApply() ([]os.FileInfo) {
 	return files
 }
 
-func Migrate() {
+func (c *Connection) Migrate() {
 	var (
-		db      = Get()
-		files   = getMigrationsToApply()
-		applied = getAppliedMigrations()
+		db      = c.GetDB()
+		files   = c.getMigrationsToApply()
+		applied = c.getAppliedMigrations()
 	)
 
 	for _, file := range files {
@@ -150,7 +159,38 @@ func Migrate() {
 	}
 }
 
-type Migration struct {
-	Version   string
-	Timestamp time.Time
+func connectDatabase(c *config.Configuration) (*sql.DB) {
+	connectionMu.Lock()
+	defer connectionMu.Unlock()
+
+	var (
+		conf    = c.Database
+		connStr = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", conf.User, conf.Password, conf.Host, conf.DatabaseName)
+		err     error
+	)
+
+	if con != nil {
+		return con
+	}
+
+	if con, err = sql.Open("postgres", connStr); err != nil {
+		log.Fatal(err)
+	}
+
+	return con
+}
+
+func ScanCol(r *sql.Rows, v interface{}) (error) {
+	r.Next()
+	return r.Scan(v)
+}
+
+func NullableStr(val string) (sql.NullString) {
+	if len(val) == 0 {
+		return sql.NullString{}
+	}
+	return sql.NullString{
+		Valid:  true,
+		String: val,
+	}
 }
