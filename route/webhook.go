@@ -112,9 +112,22 @@ func (h webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 				err = restService.CloseIssue(issue.ID, user.ID)
 			}
 
-			if err = h.db.Issues().Close(issue.ID, issue.CommitHash, userEmail); err != nil {
+			if err != nil {
 				log.Println(err)
 				continue
+			}
+
+			if err = h.db.Issues().Close(issue.ID, issue.CommitHash, userEmail); err != nil {
+				log.Println(err)
+			}
+
+			var message = fmt.Sprintf("Tarefa fechada no commit %s", issue.URL)
+			if user != nil {
+				message += fmt.Sprintf(" pelo usuário %s.", user.Name)
+			}
+
+			if err = restService.AddNote(issue.ID, message); err != nil {
+				log.Println(err)
 			}
 
 			closedIssues = append(closedIssues, issue.ID)
@@ -153,7 +166,7 @@ func (h webhook) extractIssues(c []commits) (map[string]*commitWithID, error) {
 				log.Printf("Cannot convert string(%s) to int, wrong regex match?", strIssueId)
 				continue
 			}
-			issues[commit.Author.Email] = &commitWithID{intIssueId, commit.ID}
+			issues[commit.Author.Email] = &commitWithID{intIssueId, commit.ID, commit.URL}
 		}
 	}
 
@@ -176,6 +189,7 @@ func (h webhook) getProject(projectWithNamespace string) (*db.ProjectsTable, err
 type commitWithID struct {
 	ID         int
 	CommitHash string
+	URL        string
 }
 
 type pushEvent struct {
@@ -192,6 +206,7 @@ type commits struct {
 	Message   string    `json:"message"`
 	Timestamp time.Time `json:"timestamp"`
 	Author    author    `json:"author"`
+	URL       string    `json:"url"`
 }
 
 type author struct {

@@ -18,8 +18,40 @@ type rest struct {
 	conf *config.Configuration
 }
 
+type addIssueNoteRequest struct {
+	Text string `json:"text"`
+}
+
+type closeIssueRequest struct {
+	Status  closeIssueRequestStatus  `json:"status"`
+	Handler closeIssueRequestHandler `json:"handler,omitempty"`
+}
+
+type closeIssueRequestHandler struct {
+	ID int `json:"id,omitempty"`
+}
+
+type closeIssueRequestStatus struct {
+	ID int `json:"id"`
+}
+
 func NewRestService(c *config.Configuration) (*rest) {
 	return &rest{c}
+}
+
+func (r rest) AddNote(id int, note string) (error) {
+	var request = &addIssueNoteRequest{
+		Text: note,
+	}
+	return r.makeAddIssueNoteRequest(id, request)
+}
+
+func (r rest) CloseIssue(id int, userID int) (error) {
+	var request = &closeIssueRequest{
+		Status:  closeIssueRequestStatus{closedIssueStatusID},
+		Handler: closeIssueRequestHandler{userID},
+	}
+	return r.makeCloseIssueRequest(id, request)
 }
 
 func (r rest) restAction(method string, params ...string) (string) {
@@ -34,12 +66,10 @@ func (r rest) restEndpoint() (string) {
 	return fmt.Sprintf("%s/api/rest", getHost(r.conf))
 }
 
-func (r rest) CloseIssue(id int, userID int) (error) {
-	var request = &closeIssueRequest{
-		Status:  closeIssueRequestStatus{closedIssueStatusID},
-		Handler: closeIssueRequestHandler{userID},
-	}
-	return r.makeCloseIssueRequest(id, request)
+func (r rest) makeAddIssueNoteRequest(id int, request *addIssueNoteRequest) (error) {
+	var action = fmt.Sprintf("%s/notes", r.restAction("issues", strconv.Itoa(id)))
+	_, err := r.makeRequest("POST", action, request)
+	return err
 }
 
 func (r rest) makeCloseIssueRequest(id int, request *closeIssueRequest) (error) {
@@ -84,17 +114,4 @@ func (r rest) makeRequest(method, action string, body interface{}, response ...i
 	}
 
 	return resp, err
-}
-
-type closeIssueRequest struct {
-	Status  closeIssueRequestStatus  `json:"status"`
-	Handler closeIssueRequestHandler `json:"handler,omitempty"`
-}
-
-type closeIssueRequestHandler struct {
-	ID int `json:"id,omitempty"`
-}
-
-type closeIssueRequestStatus struct {
-	ID int `json:"id"`
 }
