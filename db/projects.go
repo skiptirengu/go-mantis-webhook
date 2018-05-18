@@ -3,7 +3,7 @@ package db
 import (
 	"database/sql"
 	"github.com/kisielk/sqlstruct"
-	"github.com/pkg/errors"
+	"errors"
 )
 
 var ProjectNotFound = errors.New("project not found")

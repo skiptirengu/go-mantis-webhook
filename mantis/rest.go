@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"github.com/skiptirengu/go-mantis-webhook/util"
 	"net/http"
-	"github.com/pkg/errors"
 	"strings"
 	"encoding/json"
+	"errors"
 )
 
 const closedIssueStatusID = 80

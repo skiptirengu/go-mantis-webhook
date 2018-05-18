@@ -2,7 +2,7 @@ package db
 
 import (
 	"database/sql"
-	"github.com/pkg/errors"
+	"errors"
 	"github.com/kisielk/sqlstruct"
 )
 

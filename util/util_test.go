@@ -3,7 +3,7 @@ package util
 import (
 	"testing"
 	"github.com/stretchr/testify/assert"
-	"github.com/pkg/errors"
+	"errors"
 )
 
 type testStru struct {
@@ -22,7 +22,7 @@ func TestMapStringSlice(t *testing.T) {
 }
 
 func TestPopError(t *testing.T) {
-	errs := []error{errors.New("One"), errors.New("Two")}
+	errs := []error{errors.New("one"), errors.New("two")}
 	err := PopError(errs)
-	assert.Equal(t, "Two", err.Error())
+	assert.Equal(t, "two", err.Error())
 }
