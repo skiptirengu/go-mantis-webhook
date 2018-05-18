@@ -23,6 +23,7 @@ func main() {
 	sqlstruct.NameMapper = sqlstruct.ToSnakeCase
 	database.Migrate()
 
+	router.GET("/", middleware.JSON(route.OK))
 	router.POST("/webhook/push", middleware.AuthorizeWebhook(route.Webhook(conf, database).Push))
 	router.POST("/app/projects", middleware.App(route.Projects(database).Add))
 	router.POST("/app/aliases", middleware.App(route.Aliases(database).Add))
