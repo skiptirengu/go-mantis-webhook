@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+const defaultPort = 8080
+
 var (
 	configMutex = sync.Mutex{}
 	config      *Configuration
@@ -27,6 +29,9 @@ func Get() (*Configuration) {
 			config.Mantis.Host = strings.TrimRight(config.Mantis.Host, "/")
 			if len(config.Secret) < 10 {
 				log.Fatal("The configured secret is too small. Please set a new one on your config.json file.")
+			}
+			if config.Port == 0 {
+				config.Port = defaultPort
 			}
 		}
 	}
