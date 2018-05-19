@@ -20,8 +20,8 @@ type UsersTable struct {
 
 func (u users) Get(email string) (*UsersTable, error) {
 	const query = `
-		select u.id, u.name, case when u.email is null then a.email else u.email end as email from users u
-		left join aliases a on u.email = a.email where u.email = $1 or a.email = $2
+		select u.id, u.name, case when u.email is null then a.alias else u.email end as email from users u
+		left join aliases a on u.email = a.alias where u.email = $1 or a.email = $2
 	`
 
 	rows, err := u.db.Query(query, email, email)
