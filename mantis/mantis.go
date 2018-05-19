@@ -4,6 +4,8 @@ import (
 	"log"
 	"github.com/skiptirengu/go-mantis-webhook/db"
 	"github.com/skiptirengu/go-mantis-webhook/config"
+	"github.com/pkg/errors"
+	"fmt"
 )
 
 func getHost(conf *config.Configuration) (host string) {
@@ -13,27 +15,26 @@ func getHost(conf *config.Configuration) (host string) {
 	return
 }
 
-func SyncProjectUsers(c *config.Configuration, db db.Database, projectName string) {
+func SyncProjectUsers(c *config.Configuration, db db.Database, projectName string) (error) {
 	service := NewSoapService(c)
 	projectId, err := service.ProjectGetIdFromName(projectName)
 
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	} else if projectId == 0 {
-		log.Printf("Project %s not found", projectName)
-		return
+		return errors.New(fmt.Sprintf("project %s not found", projectName))
 	}
 
 	accounts, err := service.ProjectGetUsers(projectId)
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 
 	for _, account := range accounts {
 		if _, err := db.Users().CreateOrUpdate(account.Id, account.Name, account.Email); err != nil {
-			log.Println(err)
+			return err
 		}
 	}
+
+	return nil
 }
