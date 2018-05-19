@@ -14,7 +14,7 @@ import (
 
 const closedIssueStatusID = 80
 
-type rest struct {
+type Rest struct {
 	conf *config.Configuration
 }
 
@@ -35,18 +35,18 @@ type closeIssueRequestStatus struct {
 	ID int `json:"id"`
 }
 
-func NewRestService(c *config.Configuration) (*rest) {
-	return &rest{c}
+func NewRestService(c *config.Configuration) (*Rest) {
+	return &Rest{c}
 }
 
-func (r rest) AddNote(id int, note string) (error) {
+func (r Rest) AddNote(id int, note string) (error) {
 	var request = &addIssueNoteRequest{
 		Text: note,
 	}
 	return r.makeAddIssueNoteRequest(id, request)
 }
 
-func (r rest) CloseIssue(id int, userID int) (error) {
+func (r Rest) CloseIssue(id int, userID int) (error) {
 	var request = &closeIssueRequest{
 		Status:  closeIssueRequestStatus{closedIssueStatusID},
 		Handler: closeIssueRequestHandler{userID},
@@ -54,7 +54,7 @@ func (r rest) CloseIssue(id int, userID int) (error) {
 	return r.makeCloseIssueRequest(id, request)
 }
 
-func (r rest) restAction(method string, params ...string) (string) {
+func (r Rest) restAction(method string, params ...string) (string) {
 	action := fmt.Sprintf("%s/%s", r.restEndpoint(), method)
 	for _, param := range params {
 		action += fmt.Sprintf("/%s", param)
@@ -62,23 +62,23 @@ func (r rest) restAction(method string, params ...string) (string) {
 	return action
 }
 
-func (r rest) restEndpoint() (string) {
+func (r Rest) restEndpoint() (string) {
 	return fmt.Sprintf("%s/api/rest", getHost(r.conf))
 }
 
-func (r rest) makeAddIssueNoteRequest(id int, request *addIssueNoteRequest) (error) {
+func (r Rest) makeAddIssueNoteRequest(id int, request *addIssueNoteRequest) (error) {
 	var action = fmt.Sprintf("%s/notes", r.restAction("issues", strconv.Itoa(id)))
 	_, err := r.makeRequest("POST", action, request)
 	return err
 }
 
-func (r rest) makeCloseIssueRequest(id int, request *closeIssueRequest) (error) {
+func (r Rest) makeCloseIssueRequest(id int, request *closeIssueRequest) (error) {
 	var action = r.restAction("issues", strconv.Itoa(id))
 	_, err := r.makeRequest("PATCH", action, request)
 	return err
 }
 
-func (r rest) makeRequest(method, action string, body interface{}, response ...interface{}) (*http.Response, error) {
+func (r Rest) makeRequest(method, action string, body interface{}, response ...interface{}) (*http.Response, error) {
 	var (
 		req = gorequest.New()
 		err error
