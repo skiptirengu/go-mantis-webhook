@@ -26,12 +26,13 @@ var (
 )
 
 type webhook struct {
-	conf *config.Configuration
-	db   db.Database
+	conf        *config.Configuration
+	db          db.Database
+	restService *mantis.Rest
 }
 
 func Webhook(c *config.Configuration, db db.Database) (*webhook) {
-	return &webhook{c, db}
+	return &webhook{c, db, mantis.NewRestService(c)}
 }
 
 func (h webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -42,7 +43,6 @@ func (h webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
 	// TODO use the api to get all commits using before and after refs
 	if event.TotalCommitsCount > pushEventMaxCommits {
 		log.Printf("This push have %d commits, processing only the first %d commits", event.TotalCommitsCount, pushEventMaxCommits)
@@ -52,85 +52,58 @@ func (h webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 
 	// Do all processing on background
 	go func() {
+		var issuesLen int
+
 		project, err := h.getProject(event.Project.PathWithNamespace)
 		if err != nil {
 			log.Println(err)
 			return
 		}
-
 		issues, err := h.extractIssues(event.Commits)
 		if err != nil {
 			log.Println(err)
 			return
 		}
-		if len(issues) == 0 {
+		if issuesLen = len(issues); issuesLen == 0 {
 			log.Println("No closeable commits found. Skipping...")
 			return
 		}
+		if err := mantis.SyncProjectUsers(h.conf, h.db, project.Mantis); err != nil {
+			log.Println(err)
+		}
 
 		var (
-			restService  = mantis.NewRestService(h.conf)
-			synced       = false
+			okChan       = make(chan int)
+			errChan      = make(chan error)
+			userCache    = make(map[string]*db.UsersTable, issuesLen)
 			closedIssues = make([]int, 0)
-			userCache    = make(map[string]*db.UsersTable, len(issues))
 		)
+
 		for email, issue := range issues {
 			var (
-				user      *db.UsersTable
-				ok        bool
-				err       error
-				userEmail string
+				user *db.UsersTable
+				ok   bool
+				err  error
 			)
 
 			if user, ok = userCache[email]; !ok {
-				user, err = h.db.Users().Get(email)
-				switch err {
-				case db.UserNotFound:
-					if !synced {
-						mantis.SyncProjectUsers(h.conf, h.db, project.Mantis)
-						user, err = h.db.Users().Get(email)
-						synced = true
-					} else {
-						err = nil
-					}
+				if user, err = h.db.Users().Get(email); err == nil {
+					userCache[email] = user
+				} else {
+					log.Println(err)
 				}
 			}
 
-			if err != nil {
-				log.Println(err)
-				continue
-			} else if user == nil {
-				log.Printf("Unable to find user with email %s", email)
-			} else {
-				userEmail = user.Email
-				userCache[email] = user
-			}
+			go h.closeIssue(okChan, errChan, issue, user)
+		}
 
-			if user == nil {
-				err = restService.CloseIssue(issue.ID, 0)
-			} else {
-				err = restService.CloseIssue(issue.ID, user.ID)
-			}
-
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-
-			if err = h.db.Issues().Close(issue.ID, issue.CommitHash, userEmail); err != nil {
+		for counter := issuesLen; counter > 0; counter-- {
+			select {
+			case id := <-okChan:
+				closedIssues = append(closedIssues, id)
+			case err := <-errChan:
 				log.Println(err)
 			}
-
-			var message = fmt.Sprintf("Tarefa fechada no commit %s", issue.URL)
-			if user != nil {
-				message += fmt.Sprintf(" pelo usuário %s.", user.Name)
-			}
-
-			if err = restService.AddNote(issue.ID, message); err != nil {
-				log.Println(err)
-			}
-
-			closedIssues = append(closedIssues, issue.ID)
 		}
 
 		if l := len(closedIssues); l > 0 {
@@ -138,6 +111,40 @@ func (h webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 			log.Printf("Webhook call closed %d issues (%s)", l, strings.Join(mapped, ", "))
 		}
 	}()
+}
+
+func (h webhook) closeIssue(okChan chan int, errChan chan error, issue *commitWithID, user *db.UsersTable) {
+	var (
+		err       error
+		message   string
+		userEmail string
+	)
+
+	if user == nil {
+		err = h.restService.CloseIssue(issue.ID, 0)
+	} else {
+		userEmail = user.Email
+		err = h.restService.CloseIssue(issue.ID, user.ID)
+	}
+
+	if err != nil {
+		errChan <- err
+		return
+	}
+
+	message = fmt.Sprintf("Tarefa fechada no commit %s", issue.URL)
+	if user != nil {
+		message += fmt.Sprintf(" pelo usuário %s.", user.Name)
+	}
+
+	err = h.restService.AddNote(issue.ID, message)
+	err = h.db.Issues().Close(issue.ID, issue.CommitHash, userEmail)
+
+	if err != nil {
+		errChan <- err
+	} else {
+		okChan <- issue.ID
+	}
 }
 
 func (h webhook) extractIssues(c []commits) (map[string]*commitWithID, error) {
