@@ -12,7 +12,10 @@ import (
 	"errors"
 )
 
-const closedIssueStatusID = 80
+const (
+	closedIssueStatusID = 80
+	customFieldName     = "custom_Horas Realizadas"
+)
 
 type Rest struct {
 	conf *config.Configuration
@@ -23,8 +26,9 @@ type addIssueNoteRequest struct {
 }
 
 type closeIssueRequest struct {
-	Status  closeIssueRequestStatus  `json:"status"`
-	Handler closeIssueRequestHandler `json:"handler,omitempty"`
+	Status       closeIssueRequestStatus  `json:"status"`
+	Handler      closeIssueRequestHandler `json:"handler,omitempty"`
+	CustomFields []customField            `json:"custom_fields,omitempty"`
 }
 
 type closeIssueRequestHandler struct {
@@ -33,6 +37,15 @@ type closeIssueRequestHandler struct {
 
 type closeIssueRequestStatus struct {
 	ID int `json:"id"`
+}
+
+type customField struct {
+	Field customFieldDef `json:"field"`
+	Value string         `json:"value"`
+}
+
+type customFieldDef struct {
+	Name string `json:"name"`
 }
 
 func NewRestService(c *config.Configuration) (*Rest) {
@@ -46,10 +59,14 @@ func (r Rest) AddNote(id int, note string) (error) {
 	return r.makeAddIssueNoteRequest(id, request)
 }
 
-func (r Rest) CloseIssue(id int, userID int) (error) {
+func (r Rest) CloseIssue(id int, userID int, hours float64) (error) {
 	var request = &closeIssueRequest{
 		Status:  closeIssueRequestStatus{closedIssueStatusID},
 		Handler: closeIssueRequestHandler{userID},
+		CustomFields: []customField{{
+			Field: customFieldDef{customFieldName},
+			Value: strconv.FormatFloat(hours, 'f', 2, 64),
+		}},
 	}
 	return r.makeCloseIssueRequest(id, request)
 }
