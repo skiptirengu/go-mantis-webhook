@@ -23,7 +23,10 @@ func (p projects) Get(gitlab string) (*ProjectsTable, error) {
 
 	if err != nil {
 		return nil, err
+	} else {
+		defer rows.Close()
 	}
+
 	if !rows.Next() {
 		return nil, ProjectNotFound
 	}
@@ -36,7 +39,10 @@ func (p projects) Get(gitlab string) (*ProjectsTable, error) {
 
 func (p projects) CheckExists(mantis, gitlab string) (bool) {
 	var count int
-	res, _ := p.db.Query("select count(*) from projects where mantis = $1 or gitlab = $2", mantis, gitlab)
+	res, err := p.db.Query("select count(*) from projects where mantis = $1 or gitlab = $2", mantis, gitlab)
+	if err == nil {
+		defer res.Close()
+	}
 	ScanCol(res, &count)
 	return count > 0
 }
@@ -46,6 +52,7 @@ func (p projects) Create(mantis, gitlab string) (*ProjectsTable, error) {
 	if res, err := p.db.Query("insert into projects (mantis, gitlab) values ($1, $2) returning id", mantis, gitlab); err != nil {
 		return nil, err
 	} else {
+		defer res.Close()
 		ScanCol(res, &insertedId)
 		return &ProjectsTable{ID: insertedId, Gitlab: gitlab, Mantis: mantis}, nil
 	}

@@ -27,7 +27,10 @@ func (u users) Get(email string) (*UsersTable, error) {
 	rows, err := u.db.Query(query, email, email)
 	if err != nil {
 		return nil, err
+	} else {
+		defer rows.Close()
 	}
+
 	if !rows.Next() {
 		return nil, UserNotFound
 	}

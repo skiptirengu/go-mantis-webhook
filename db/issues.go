@@ -28,6 +28,8 @@ func (i issues) Closed(commits []string) (map[string]*IssuesTable, error) {
 	rows, err := i.db.Query("select * from issues where commit_hash = any($1)", pq.Array(commits))
 	if err != nil {
 		return nil, err
+	} else {
+		defer rows.Close()
 	}
 
 	res := make(map[string]*IssuesTable, 0)

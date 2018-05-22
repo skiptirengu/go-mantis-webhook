@@ -79,6 +79,8 @@ func (c *Connection) getAppliedMigrations() (map[string]*Migration) {
 
 	if dbRows, err = db.Query("select version, timestamp from migrations"); err != nil {
 		log.Fatal(err)
+	} else {
+		defer dbRows.Close()
 	}
 
 	for dbRows.Next() {

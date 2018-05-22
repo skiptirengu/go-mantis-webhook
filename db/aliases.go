@@ -15,7 +15,10 @@ type aliasesTable struct {
 
 func (a aliases) CheckExist(email string) (bool) {
 	var count int
-	res, _ := a.db.Query("select count(*) from aliases where email = $1", email)
+	res, err := a.db.Query("select count(*) from aliases where email = $1", email)
+	if err == nil {
+		defer res.Close()
+	}
 	ScanCol(res, &count)
 	return count > 0
 }
