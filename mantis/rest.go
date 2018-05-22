@@ -14,7 +14,7 @@ import (
 
 const (
 	closedIssueStatusID = 80
-	customFieldName     = "custom_Horas Realizadas"
+	customFieldName     = "Horas Realizadas"
 )
 
 type Rest struct {
