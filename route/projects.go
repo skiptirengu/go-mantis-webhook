@@ -31,7 +31,7 @@ func (p projects) Add(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 		return
 	}
 
-	if database.CheckExists(request.MantisProject, request.GitlabProject) {
+	if database.CheckExists(request.GitlabProject) {
 		ErrorResponse.SendWithMessage(w, http.StatusBadRequest, "Project already exists")
 		return
 	}

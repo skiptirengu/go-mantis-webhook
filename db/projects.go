@@ -37,9 +37,9 @@ func (p projects) Get(gitlab string) (*ProjectsTable, error) {
 	return res, nil
 }
 
-func (p projects) CheckExists(mantis, gitlab string) (bool) {
+func (p projects) CheckExists(gitlab string) (bool) {
 	var count int
-	res, err := p.db.Query("select count(*) from projects where mantis = $1 or gitlab = $2", mantis, gitlab)
+	res, err := p.db.Query("select count(*) from projects where gitlab = $1", gitlab)
 	if err == nil {
 		defer res.Close()
 	}

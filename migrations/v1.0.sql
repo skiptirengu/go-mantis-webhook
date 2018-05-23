@@ -3,7 +3,7 @@ create extension if not exists citext;
 create table projects
 (
   id     serial primary key,
-  mantis text unique,
+  mantis text,
   gitlab text unique
 );
 
