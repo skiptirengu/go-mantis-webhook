@@ -77,11 +77,12 @@ func (h webhook) Push(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 			closedIssues = make([]int, 0)
 		)
 
-		for email, issue := range issues {
+		for _, issue := range issues {
 			var (
-				user *db.UsersTable
-				ok   bool
-				err  error
+				user  *db.UsersTable
+				ok    bool
+				err   error
+				email = issue.Email
 			)
 
 			if user, ok = userCache[email]; !ok {
@@ -145,9 +146,9 @@ func (h webhook) closeIssue(okChan chan int, errChan chan error, issue *parsedCo
 	}
 }
 
-func (h webhook) extractIssues(c []commits) (map[string]*parsedCommit, error) {
+func (h webhook) extractIssues(c []commits) ([]*parsedCommit, error) {
 	var (
-		issues      = make(map[string]*parsedCommit, len(c))
+		issues      = make([]*parsedCommit, 0)
 		mapped      = util.MapStringSlice(c, func(val interface{}) string { return val.(commits).ID })
 		closed, err = h.db.Issues().Closed(mapped)
 	)
@@ -174,17 +175,18 @@ func (h webhook) extractIssues(c []commits) (map[string]*parsedCommit, error) {
 			)
 			issueId, err = strconv.Atoi(match[1])
 			timeSpent, err = strconv.ParseFloat(match[2], 32)
-			// Being unable to parse the int value means our regex is probably bugged
+			// Being unable to parse the numbers value means our regex is probably bugged
 			if err != nil {
 				log.Println(err)
 				continue
 			}
-			issues[commit.Author.Email] = &parsedCommit{
+			issues = append(issues, &parsedCommit{
 				ID:         issueId,
 				CommitHash: commit.ID,
 				URL:        commit.URL,
 				hours:      timeSpent,
-			}
+				Email:      commit.Author.Email,
+			})
 		}
 	}
 
@@ -209,6 +211,7 @@ type parsedCommit struct {
 	CommitHash string
 	URL        string
 	hours      float64
+	Email      string
 }
 
 type pushEvent struct {

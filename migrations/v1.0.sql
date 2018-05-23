@@ -31,5 +31,3 @@ create table issues
   email       citext,
   date        timestamp without time zone default (now() :: timestamp at time zone 'utc')
 );
-create unique index unique_commit_hash
-  on issues (lower(commit_hash));
